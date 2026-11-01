@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The thin bar between the Home clock and the date: as tall as the date block, which is one line here. -->
+    <dimen name="clock_divider_height">26dp</dimen>
+    <dimen name="clock_divider_margin_bottom">8dp</dimen>
+</resources>

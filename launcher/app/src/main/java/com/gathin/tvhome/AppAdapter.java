@@ -57,6 +57,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         void onLibraryRequested();
         void onLibraryFocused();
         void onLibraryUp();
+
+        /** Long press of OK on a tile, as on the stock Google TV home. Return false to open the app's info instead. */
+        boolean onTileLongPress(int position);
     }
 
     static final class Entry {
@@ -133,6 +136,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     static final float DOCK_EXTRA_DP = 6 + 12;
     /** Room kept under the last row rows_below_dock asks for (MainActivity places the dock with the same). */
     static final float BOTTOM_ROOM_DP = 30;
+    /** rows_below_dock 0 only: room under the dock row instead of BOTTOM_ROOM_DP. No more than the next row's 8dp item
+     *  padding, so none of that row shows (a sliver read as a cut-off row), and the dock sits low near the screen
+     *  edge while its band stays inside the 5% overscan-safe margin. */
+    static final float DOCK_ALONE_BOTTOM_DP = 7;
     /** Room kept above the dock for the dock title (48sp hero name plus its 40dp gap) when dock_title is on. */
     static final float TITLE_ROOM_DP = 104;
     /** dock_row false: room above the first row for its zoom and glass (MainActivity places the grid with it). */
@@ -437,6 +444,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         h.card.setOnClickListener(v -> launch(e));
         h.card.setOnLongClickListener(v -> {
+            int pos = h.getBindingAdapterPosition();
+            if (pos != RecyclerView.NO_POSITION && listener.onTileLongPress(pos)) return true;
             Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + e.pkg));
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try {

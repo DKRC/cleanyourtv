@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One media bar button: a round, focusable symbol. -->
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="52dp"
+    android:layout_height="52dp"
+    android:layout_marginStart="4dp"
+    android:layout_marginEnd="4dp"
+    android:padding="13dp"
+    android:background="@drawable/media_button_bg"
+    android:tint="@color/media_button_tint"
+    android:scaleType="fitCenter"
+    android:focusable="true"
+    android:clickable="true" />

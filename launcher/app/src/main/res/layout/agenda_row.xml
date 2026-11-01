@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One Up next event (Agenda), as a table row: date and weekday, time (F1 only), a bar (kerb red for F1, blue for a series), title. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="5dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:id="@+id/agendaWhen"
+        android:layout_width="134dp"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:textColor="#CCFFFFFF"
+        android:shadowColor="#99000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="3"
+        android:textSize="16sp"
+        android:fontFamily="@font/outfit_medium"
+        android:fontFeatureSettings="tnum" />
+
+    <TextView
+        android:id="@+id/agendaTime"
+        android:layout_width="52dp"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:textColor="#CCFFFFFF"
+        android:shadowColor="#99000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="3"
+        android:textSize="16sp"
+        android:fontFamily="@font/outfit_medium"
+        android:fontFeatureSettings="tnum" />
+
+    <View
+        android:id="@+id/agendaBar"
+        android:layout_width="3dp"
+        android:layout_height="14dp"
+        android:layout_marginEnd="10dp"
+        android:background="@drawable/race_bar"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:id="@+id/agendaTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxWidth="320dp"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:textColor="#FFFFFFFF"
+        android:shadowColor="#99000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="3"
+        android:textSize="16sp"
+        android:fontFamily="@font/outfit_regular" />
+</LinearLayout>

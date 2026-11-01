@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cover art clip and placeholder: a rounded square, dim when the app sends no art. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#1FFFFFFF" />
+    <corners android:radius="10dp" />
+</shape>

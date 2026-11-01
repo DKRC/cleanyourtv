@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Now playing card's media bar (OK on the card): previous, play or pause, next, then the playing app's
+     icon to open it. Buttons are added in code (MainActivity.showMediaMenu). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/buttons"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/glass_panel"
+    android:padding="10dp"
+    android:elevation="12dp" />

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Up next (Agenda): marks a series episode, as race_bar marks an F1 session. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FF4DA3FF" />
+    <corners android:radius="1.5dp" />
+</shape>

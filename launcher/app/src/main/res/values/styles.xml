@@ -26,6 +26,18 @@
     </style>
     <style name="TopButton" parent="TopButtonBase" />
 
+    <!-- Compact weather / now-playing pills in the top bar while the grid is scrolled (MainActivity.layoutCards):
+         display only, never focused, so a quieter pill than the buttons: flat fill, no hairline, 80% text. -->
+    <style name="InfoPill" parent="TopButtonBase">
+        <item name="android:background">@drawable/info_pill_bg</item>
+        <item name="android:textColor">#CCFFFFFF</item>
+        <item name="android:drawableTint">#CCFFFFFF</item>
+        <item name="android:focusable">false</item>
+        <item name="android:clickable">false</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
     <!-- Icon-only pill: a 42dp circle (pill_bg's 21dp corners) with the 22dp icon centred by even padding. Give it a
          contentDescription, since there is no text. -->
     <style name="TopButtonIcon" parent="TopButtonBase">

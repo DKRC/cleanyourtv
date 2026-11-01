@@ -120,6 +120,13 @@ final class Config {
     final boolean overlayApplied;
     /** Festive skin from a theme (festival, festival_until, greeting, accent_color); {@link Festival#NONE} if none. */
     final Festival festival;
+    /** The weather card's place: a theme's weather_city, weather_latitude and weather_longitude, else Weather's default. */
+    String weatherCity = Weather.DEFAULT_CITY;
+    double weatherLatitude = Weather.DEFAULT_LATITUDE, weatherLongitude = Weather.DEFAULT_LONGITUDE;
+    /** weather_metar: the ICAO airport whose observation shows as "now" (e.g. SBBR); empty uses the model alone. */
+    String weatherMetar = "";
+    /** agenda_calendars: iCalendar URLs (https or webcal) for the Up next card (see Agenda); empty hides it. */
+    List<String> agendaCalendars = Collections.emptyList();
     /** F1 weekends from a theme's race_calendar (see RaceWeekend); empty when the theme has none. */
     final List<RaceWeekend.Race> raceCalendar;
     /** Cinematic top shelf (config.xml, cinematic_home): the focused dock app's artwork behind a larger shelf. */
@@ -339,7 +346,7 @@ final class Config {
         Festival festival = json == null ? Festival.NONE : Festival.parse(string(json, "festival", ""),
                 string(json, "festival_until", ""), string(json, "greeting", ""), string(json, "accent_color", ""));
 
-        return new Config(dock, fillDock, hidden, liveTv, liveTvAction, packageMap(launchActions), packageMap(appLabels),
+        Config cfg = new Config(dock, fillDock, hidden, liveTv, liveTvAction, packageMap(launchActions), packageMap(appLabels),
                 packageMap(appBanners), panelService,
                 panelAction, inputAction,
                 Math.max(1, columns), Math.max(0, rowsBelow), animations, advancedEffects,
@@ -348,6 +355,26 @@ final class Config {
                 wallpapers, rotationMinutes, wallpaperDim, wallpaperOrder, applied,
                 festival, inputKeycodes, appKeys, json == null ? Collections.emptyList() : raceCalendar(json), cinematic, ambientGlow,
                 Math.max(0, idleClockMinutes));
+        if (json != null) {
+            cfg.weatherCity = string(json, "weather_city", cfg.weatherCity).trim();
+            cfg.weatherMetar = string(json, "weather_metar", "").trim();
+            JSONArray calendars = json.optJSONArray("agenda_calendars");
+            if (calendars != null) {
+                List<String> urls = new ArrayList<>();
+                for (int i = 0; i < calendars.length(); i++) {
+                    String url = calendars.optString(i, "").trim();
+                    if (url.matches("(?i)(https|webcal)://.+")) urls.add(url);
+                }
+                cfg.agendaCalendars = urls;
+            }
+            double lat = json.optDouble("weather_latitude", Double.NaN), lon = json.optDouble("weather_longitude", Double.NaN);
+            // Both or neither, and on the globe: a half-set or mistyped place keeps the default rather than a wrong city.
+            if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+                cfg.weatherLatitude = lat;
+                cfg.weatherLongitude = lon;
+            }
+        }
+        return cfg;
     }
 
     /**

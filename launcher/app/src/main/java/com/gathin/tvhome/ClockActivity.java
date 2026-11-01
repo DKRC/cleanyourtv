@@ -14,6 +14,7 @@ import android.view.View;
 public class ClockActivity extends Activity {
 
     private ClockScene scene;
+    private KeepScreenOn keepOn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -22,6 +23,8 @@ public class ClockActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE);
         scene = new ClockScene(getWindow().getDecorView());
+        keepOn = new KeepScreenOn(getWindow());
+        scene.setOnPlayingChanged(() -> keepOn.setPlaying(scene.isPlaying()));
     }
 
     @Override
@@ -33,6 +36,7 @@ public class ClockActivity extends Activity {
     @Override
     protected void onPause() {
         scene.stop();
+        keepOn.release();
         super.onPause();
         finish();   // never left behind in the back stack
     }

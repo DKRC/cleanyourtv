@@ -58,5 +58,73 @@
             android:fontFamily="@font/outfit_regular"
             android:letterSpacing="0.14"
             android:textAllCaps="true" />
+
+        <!-- The playing track (NowPlaying), drifting with the clock; gone while nothing plays. -->
+        <LinearLayout
+            android:id="@+id/dreamNowPlaying"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_marginTop="28dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/dreamNowPlayingArt"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/now_playing_art"
+                android:foreground="@drawable/now_playing_art_frame"
+                android:scaleType="centerCrop"
+                android:alpha="0.85"
+                android:importantForAccessibility="no" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/now_playing"
+                        android:singleLine="true"
+                        android:textColor="#80FFFFFF"
+                        android:textSize="11sp"
+                        android:fontFamily="@font/outfit_medium"
+                        android:letterSpacing="0.22"
+                        android:textAllCaps="true" />
+
+                    <!-- Sound bars: three bobbing bars beside the kicker while a track plays. -->
+                    <com.gathin.tvhome.SoundBarsView
+                        android:id="@+id/nowPlayingBars"
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginBottom="1dp"
+                        android:importantForAccessibility="no" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/dreamNowPlayingText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:maxWidth="520dp"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="17sp"
+                    android:fontFamily="@font/outfit_regular" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
 </FrameLayout>

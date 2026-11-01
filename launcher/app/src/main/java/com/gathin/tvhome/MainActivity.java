@@ -11,6 +11,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -154,6 +155,33 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private List<RaceWeekend.Race> raceCalendar;
     private View racePanel;
     private TextView raceKicker, raceHeadline, raceSessions;
+    /** The "Now playing" panel under the top pills. */
+    private View nowPlayingPanel;
+    private ImageView nowPlayingArt, nowPlayingSource;
+    private SoundBarsView nowPlayingBars;
+    private TextView nowPlayingKicker;
+    private TextView nowPlayingTitle, nowPlayingArtist;
+    private NowPlaying nowPlaying;
+    /** Today's weather, opposite Now playing; off while a race calendar owns that corner. */
+    private View weatherPanel;
+    private ImageView weatherSymbol;
+    private TextView weatherNow, weatherRange;
+    private Weather weather;
+    /** The cards' compact form in the top bar, shown while the grid is scrolled over the card row. */
+    private TextView weatherPill, nowPlayingPill;
+    private View cardsRow;
+    private boolean cardsCompact;
+    private Weather.Report lastWeather;
+    private String weatherCity;
+    private NowPlaying.Track lastTrack;
+    /** Up next: the near F1 weekend and each series' next episode (Agenda.select), under the weather card. */
+    private View agendaPanel;
+    private ViewGroup agendaRows;
+    private List<String> agendaShown = Collections.emptyList();
+    private Agenda agenda;
+    private List<Agenda.Event> agendaEvents = Collections.emptyList();
+    private boolean hasAgenda;
+    private KeepScreenOn keepOn;
     /** config.xml show_stats, overridable by a theme. Off: the line is gone and nothing is read. */
     private boolean showStats;
     private boolean shamsi;
@@ -291,6 +319,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         public void run() {
             updateGreeting();
             updateRace();
+            showAgenda(agendaEvents);   // events that ended drop off
             updateWifiLabel();
             sky.update();
             wallpaperPlayer.update();
@@ -362,6 +391,31 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         raceKicker = findViewById(R.id.raceKicker);
         raceHeadline = findViewById(R.id.raceHeadline);
         raceSessions = findViewById(R.id.raceSessions);
+        nowPlayingPanel = findViewById(R.id.nowPlaying);
+        nowPlayingArt = findViewById(R.id.nowPlayingArt);
+        nowPlayingArt.setClipToOutline(true);
+        nowPlayingTitle = findViewById(R.id.nowPlayingTitle);
+        nowPlayingArtist = findViewById(R.id.nowPlayingArtist);
+        nowPlaying = new NowPlaying(this, this::showTrack);
+        keepOn = new KeepScreenOn(getWindow());
+        nowPlayingSource = findViewById(R.id.nowPlayingSource);
+        nowPlayingSource.setClipToOutline(true);
+        nowPlayingBars = findViewById(R.id.nowPlayingBars);
+        nowPlayingKicker = findViewById(R.id.nowPlayingKicker);
+        if (reducedMotion) nowPlayingBars.setAnimated(false);
+        weatherPanel = findViewById(R.id.weather);
+        weatherSymbol = findViewById(R.id.weatherSymbol);
+        weatherNow = findViewById(R.id.weatherNow);
+        weatherRange = findViewById(R.id.weatherRange);
+        weatherPill = findViewById(R.id.weatherPill);
+        nowPlayingPill = findViewById(R.id.nowPlayingPill);
+        cardsRow = (View) weatherPanel.getParent().getParent();   // the weather card sits in a column with Up next
+        weatherCity = cfg.weatherCity;
+        ((TextView) findViewById(R.id.weatherCity)).setText(weatherCity);
+        agendaPanel = findViewById(R.id.agenda);
+        agendaRows = findViewById(R.id.agendaRows);
+        if (!cfg.agendaCalendars.isEmpty()) agenda = new Agenda(cfg.agendaCalendars, this::showAgenda);
+        if (raceCalendar.isEmpty()) weather = new Weather(cfg.weatherLatitude, cfg.weatherLongitude, cfg.weatherMetar, this::showWeather);
         showStats = cfg.showStats;
         shamsi = cfg.shamsiDate;
         greetingName = cfg.greetingName;
@@ -458,7 +512,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // Keep the hero below the header when the library is enabled on a short screen,
             // even when the theme requests an extra visible row below the dock.
             int shelfClearance = cfg.appLibrary ? hero.getMeasuredHeight() + (int) (40 * density) : 0;
-            int want = Math.max(shelfClearance, h - dockRow - gridRows - (int) (AppAdapter.BOTTOM_ROOM_DP * density));
+            int bottomRoom = (int) ((rowsBelowDock == 0 ? AppAdapter.DOCK_ALONE_BOTTOM_DP : AppAdapter.BOTTOM_ROOM_DP) * density);
+            int want = Math.max(shelfClearance, h - dockRow - gridRows - bottomRoom);
             // Where the rows cannot fit even at the smallest tile (3 rows with the title on), the title keeps its
             // room above the dock and the last rows run off the bottom instead of the title drawing over the clock.
             if (MainActivity.this.dockRow && cfg.dockTitle && rowsBelowDock > 0) want = Math.max(want, (int) (AppAdapter.TITLE_ROOM_DP * density));
@@ -470,6 +525,20 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // Cold start or column count > 4: the first focus can run before the grid has its final width or
             // padding, leaving the glass at the XML design size until a key is pressed.
             grid.post(this::refitGlass);
+        });
+
+        // The cards sit where the grid scrolls to: once it moves, they fold into the top bar as pills.
+        final int compactAt = Math.round(12 * density);
+        grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
+                RecyclerView.ViewHolder dock = rv.findViewHolderForAdapterPosition(0);
+                boolean compact = dock == null || dock.itemView.getTop() < rv.getPaddingTop() - compactAt;
+                if (compact != cardsCompact) {
+                    cardsCompact = compact;
+                    layoutCards();
+                }
+            }
         });
 
         // Keep the glass glued to its tile while the grid scrolls.
@@ -532,7 +601,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (iconOnlyButtons) {
             if (cfg.wifiLabelWidth > 0) btnWifi.setMaxWidth(Math.round(cfg.wifiLabelWidth * density));
             else makeIconOnly(btnWifi);
-            makeIconOnly((TextView) btnSettings);
+            // Local change: only the Wi-Fi pill goes icon-only; Settings keeps its label.
         }
         btnSettings.setOnLongClickListener(v -> {
             showSettingsMenu();
@@ -546,8 +615,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
             if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-                // Back to the dock tile Up came from, not wherever the focus finder lands.
-                focusTile(lastFocused % COLUMNS);
+                // The Now playing card when it shows, else back to the dock tile Up came from.
+                if (nowPlayingPanel.getVisibility() == View.VISIBLE) nowPlayingPanel.requestFocus();
+                else focusTile(lastFocused % COLUMNS);
                 return true;
             }
             int firstButton = btnInputs.getVisibility() == View.VISIBLE ? R.id.btnInputs : firstTopButton().getId();
@@ -557,6 +627,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton;
         };
         btnInputs.setOnKeyListener(pillKeys);
+        // The Now playing card sits between the top bar and the dock: Up to the pills, Down to the dock.
+        nowPlayingPanel.setOnKeyListener((v, keyCode, event) -> {
+            if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DPAD_UP: btnSettings.requestFocus(); return true;
+                case KeyEvent.KEYCODE_DPAD_DOWN: focusTile(lastFocused % COLUMNS); return true;
+                case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT: return true;
+                default: return false;
+            }
+        });
+        nowPlayingPanel.setOnClickListener(v -> showMediaMenu());
         btnWifi.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
         btnReorder.setOnKeyListener(pillKeys);
@@ -658,6 +739,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         rebuildOnResume = false;
         updateGreeting();
         updateRace();
+        nowPlaying.start();
+        if (weather != null) weather.start();
+        if (agenda != null) agenda.start();
         // The network and Inputs pills keep their state while Home is in the background, and callbacks update them
         // when the network or the inputs change, so this refresh only catches anything missed. Its binder calls
         // (about 7 ms on a TCL C755, most of it WifiManager.getConnectionInfo) would hold up the first frame back
@@ -793,6 +877,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroArt.animate().cancel();
         handler.removeCallbacks(minuteTick);
         stopStats();
+        nowPlaying.stop();
+        if (weather != null) weather.stop();
+        if (agenda != null) agenda.stop();
         if (diya != null) diya.stop();
         cancelPendingFocusScroll();
         // Nothing of ours stays on screen over another app; an undecided prompt simply returns next time.
@@ -1802,6 +1889,55 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return findViewById(R.id.btnSettings);
     }
 
+    /**
+     * Long press of OK on a tile, as on the stock Google TV home: a menu under the tile with Move, Remove from Home
+     * (the library's removal; the library brings it back), Uninstall and App info.
+     */
+    @Override public boolean onTileLongPress(int position) {
+        if (reordering || position >= adapter.movableCount()) return false;
+        ComponentName component = ComponentName.unflattenFromString(adapter.keyAt(position));
+        RecyclerView.ViewHolder holder = grid.findViewHolderForAdapterPosition(position);
+        if (component == null || holder == null) return false;
+        String pkg = component.getPackageName();
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        PopupWindow popup = glassPopup(panel, (int) (220 * density));
+        addSettingsMenuRow(rows, popup, R.string.tile_move, () -> {
+            if (!beginReorder()) return;
+            pickUp(position);
+            Toast.makeText(this, R.string.move_hint, Toast.LENGTH_LONG).show();
+        });
+        addSettingsMenuRow(rows, popup, R.string.library_remove_shortcut, () -> {
+            if (LibraryApps.save(this, pkg, false)) reloadTiles();
+            else Toast.makeText(this, R.string.library_save_failed, Toast.LENGTH_SHORT).show();
+        });
+        addSettingsMenuRow(rows, popup, R.string.tile_uninstall, () -> {
+            try {
+                startActivity(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + pkg)));
+            } catch (ActivityNotFoundException e) {
+                Toast.makeText(this, R.string.tile_uninstall_unavailable, Toast.LENGTH_SHORT).show();
+            }
+        });
+        addSettingsMenuRow(rows, popup, R.string.library_app_info, () -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg)));
+            } catch (ActivityNotFoundException ignored) {
+            }
+        });
+        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        popup.setWidth(Math.max((int) (220 * density), panel.getMeasuredWidth()));
+        // Above the tile: the dock sits low, and a menu dropped under it ran off the bottom of the screen.
+        View card = holder.itemView.findViewById(R.id.card);
+        int[] at = new int[2];
+        card.getLocationOnScreen(at);
+        int y = Math.max((int) (12 * density), at[1] - panel.getMeasuredHeight() - (int) (12 * density));
+        panel.setAlpha(0f);
+        popup.showAtLocation(root, Gravity.NO_GRAVITY, at[0], y);
+        panel.animate().alpha(1f).setDuration(180).start();
+        rows.getChildAt(0).requestFocus();
+        return true;
+    }
+
     @Override public void onLibraryUp() {
         if (adapter.appCount() == 0) { firstTopButton().requestFocus(); return; }
         int lastRow = ((adapter.appCount() - 1) / COLUMNS) * COLUMNS;
@@ -1985,6 +2121,241 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         raceSessions.setText(row);
         racePanel.setVisibility(View.VISIBLE);
+    }
+
+    /** Weather's callback: today's report, or nothing until the first one arrives. */
+    private void showWeather(Weather.Report r) {
+        lastWeather = r;
+        if (r != null) {
+            weatherSymbol.setImageResource(Weather.icon(r.code, r.day));
+            weatherNow.setText(r.temp + "\u00B0  " + getString(Weather.description(r.code)));
+            weatherRange.setText(getString(R.string.weather_range, r.high, r.low));
+            weatherPill.setText(r.temp + "\u00B0");
+            weatherPill.setCompoundDrawablesRelativeWithIntrinsicBounds(Weather.icon(r.code, r.day), 0, 0, 0);
+            String spoken = weatherCity + ", " + weatherNow.getText() + ", " + weatherRange.getText();
+            weatherPanel.setContentDescription(spoken);
+            weatherPill.setContentDescription(spoken);
+        }
+        layoutCards();
+    }
+
+    /** The most rows Up next shows. */
+    private static final int AGENDA_ROWS = 6;
+
+    /** Agenda's callback, and the minute tick: one row per event Agenda.select picks. */
+    private void showAgenda(List<Agenda.Event> events) {
+        agendaEvents = events;
+        java.time.ZoneId zone = java.time.ZoneId.systemDefault();
+        java.time.LocalDate today = java.time.LocalDate.now(zone);
+        // One line per row: today?, F1?, date, time, title; compared so the minute tick rebuilds only on a change.
+        List<String> lines = new ArrayList<>();
+        for (Agenda.Event e : Agenda.select(events, java.time.Instant.now(), zone, AGENDA_ROWS)) {
+            boolean isToday = !e.start.atZone(zone).toLocalDate().isAfter(today);
+            lines.add((isToday ? "1" : "") + "\t" + (Agenda.isF1(e.title) ? "1" : "") + "\t" + agendaWhen(e, zone)
+                    + "\t" + Agenda.shortTitle(e.title, getString(R.string.agenda_race)));
+        }
+        if (!lines.equals(agendaShown)) {
+            agendaShown = lines;
+            agendaRows.removeAllViews();
+            StringBuilder spoken = new StringBuilder(getString(R.string.agenda));
+            for (String line : lines) {
+                String[] p = line.split("\t", 5);
+                View row = getLayoutInflater().inflate(R.layout.agenda_row, agendaRows, false);
+                ((TextView) row.findViewById(R.id.agendaWhen)).setText(p[2]);
+                ((TextView) row.findViewById(R.id.agendaTime)).setText(p[3]);
+                ((TextView) row.findViewById(R.id.agendaTitle)).setText(p[4]);
+                row.findViewById(R.id.agendaBar).setBackgroundResource(p[1].isEmpty() ? R.drawable.series_bar : R.drawable.race_bar);
+                if (p[0].isEmpty()) row.setAlpha(0.7f);   // today reads first; later days step back
+                agendaRows.addView(row);
+                spoken.append(", ").append(p[2]).append(' ').append(p[3]).append(' ').append(p[1].isEmpty() ? "" : "F1 ").append(p[4]);
+            }
+            agendaPanel.setContentDescription(spoken);
+        }
+        hasAgenda = !lines.isEmpty();
+        layoutCards();
+    }
+
+    /** "31/10 (Hoje)\t18h", "01/11 (Amanhã)\t17h30", "06/11 (Sexta)\t": a series episode has no time. */
+    private String agendaWhen(Agenda.Event e, java.time.ZoneId zone) {
+        java.time.ZonedDateTime at = e.start.atZone(zone);
+        long days = java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.now(zone), at.toLocalDate());
+        String day;
+        if (days <= 0) day = getString(R.string.agenda_today);
+        else if (days == 1) day = getString(R.string.agenda_tomorrow);
+        else {
+            day = at.format(java.time.format.DateTimeFormatter.ofPattern("EEEE", Locale.getDefault())).split("-")[0];   // "sexta-feira"
+            day = Character.toUpperCase(day.charAt(0)) + day.substring(1);
+        }
+        String when = at.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM")) + " (" + day + ")";
+        if (!Agenda.isF1(e.title)) return when + "\t";
+        return when + "\t" + at.getHour() + "h" + (at.getMinute() == 0 ? "" : String.format(Locale.ROOT, "%02d", at.getMinute()));
+    }
+
+    /** NowPlaying's callback: the playing track under the top pills, or nothing. */
+    private void showTrack(NowPlaying.Track track) {
+        lastTrack = track;
+        keepOn.setPlaying(track != null && track.playing);
+        if (track != null) {
+            // Paused, the card stays (to resume from its menu) and says so; the bars stop.
+            nowPlayingKicker.setText(track.playing ? R.string.now_playing : R.string.now_paused);
+            nowPlayingBars.setVisibility(track.playing ? View.VISIBLE : View.GONE);
+            nowPlayingTitle.setText(track.title);
+            nowPlayingArtist.setText(track.artist);
+            nowPlayingArtist.setVisibility(track.artist.isEmpty() ? View.GONE : View.VISIBLE);
+            nowPlayingArt.setImageBitmap(track.art);
+            Drawable source = appIcon(track.app);
+            nowPlayingSource.setImageDrawable(source);
+            nowPlayingSource.setVisibility(source == null ? View.GONE : View.VISIBLE);
+            nowPlayingBars.setColor(brandColor(track.app));
+            // The pill names the artist beside the cover; the title is on the card, and both would not fit.
+            nowPlayingPill.setText(track.artist.isEmpty() ? track.title : track.artist);
+            String spoken = nowPlayingKicker.getText() + ": " + track.title
+                    + (track.artist.isEmpty() ? "" : ", " + track.artist);
+            nowPlayingPanel.setContentDescription(spoken);
+            nowPlayingPill.setContentDescription(spoken);
+            Drawable thumb = track.art == null ? null : roundedThumb(track.art, Math.round(24 * density), 4 * density);
+            nowPlayingPill.setCompoundDrawablesRelative(thumb, null, null, null);
+        }
+        layoutCards();
+    }
+
+    /**
+     * Shows each of weather and now playing as its card (grid at the top) or its top-bar pill (grid scrolled),
+     * and only when it has something to show. Appearing views fade in; the others just go.
+     */
+    private void layoutCards() {
+        View[][] pairs = {{weatherPanel, weatherPill, lastWeather == null ? null : weatherPanel},
+                          {nowPlayingPanel, nowPlayingPill, lastTrack == null ? null : nowPlayingPanel}};
+        for (View[] p : pairs) {
+            boolean has = p[2] != null;
+            show(p[0], has && !cardsCompact);
+            show(p[1], has && cardsCompact);
+        }
+        if (nowPlayingPanel.hasFocus() && (lastTrack == null || cardsCompact)) focusTile(lastFocused % COLUMNS);
+        // Up next has no pill: it simply goes while the grid is scrolled.
+        show(agendaPanel, hasAgenda && !cardsCompact);
+        cardsRow.setVisibility(cardsCompact ? View.GONE : View.VISIBLE);
+    }
+
+    private void show(View v, boolean on) {
+        if (!on) {
+            v.animate().cancel();
+            v.setVisibility(View.GONE);
+            return;
+        }
+        if (v.getVisibility() == View.VISIBLE) return;
+        v.setVisibility(View.VISIBLE);
+        if (reducedMotion) return;
+        v.setAlpha(0f);
+        v.animate().alpha(1f).setDuration(180).start();
+    }
+
+    /**
+     * OK on the Now playing card: a small bar of round buttons under it, previous, play or pause, next, and the
+     * playing app's own icon to open it. Play and pause close the bar (the card shows the new state); previous and
+     * next keep it open for another press.
+     */
+    private void showMediaMenu() {
+        NowPlaying.Track track = lastTrack;
+        if (track == null) return;
+        LinearLayout bar = (LinearLayout) getLayoutInflater().inflate(R.layout.popup_media, root, false);
+        PopupWindow popup = glassPopup(bar, ViewGroup.LayoutParams.WRAP_CONTENT);
+        addMediaButton(bar, popup, R.drawable.ic_media_previous, getString(R.string.media_previous), false,
+                () -> track.controls.skipToPrevious());
+        View playPause = track.playing
+                ? addMediaButton(bar, popup, R.drawable.ic_media_pause, getString(R.string.media_pause), true, () -> track.controls.pause())
+                : addMediaButton(bar, popup, R.drawable.ic_media_play, getString(R.string.media_play), true, () -> track.controls.play());
+        addMediaButton(bar, popup, R.drawable.ic_media_next, getString(R.string.media_next), false,
+                () -> track.controls.skipToNext());
+        Intent launch = getPackageManager().getLeanbackLaunchIntentForPackage(track.app);
+        if (launch == null) launch = getPackageManager().getLaunchIntentForPackage(track.app);
+        Drawable icon = appIcon(track.app);
+        if (launch != null && icon != null) {
+            final Intent app = launch;
+            ImageView open = addMediaButton(bar, popup, 0, getString(R.string.media_open, appLabel(track.app)), true, () -> open(app));
+            open.setImageDrawable(icon);
+            open.setImageTintList(null);   // the app's own colours
+            open.setPadding(0, 0, 0, 0);
+            open.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            open.setClipToOutline(true);
+            open.setForeground(getDrawable(R.drawable.media_app_ring));
+        }
+        bar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        popup.setWidth(bar.getMeasuredWidth());
+        dropIn(popup, bar, nowPlayingPanel, Gravity.END);
+        playPause.requestFocus();
+    }
+
+    /** One round button of the media bar; its label is spoken and shown as a tooltip. */
+    private ImageView addMediaButton(LinearLayout bar, PopupWindow popup, int icon, String label, boolean closes, Runnable action) {
+        ImageView b = (ImageView) getLayoutInflater().inflate(R.layout.media_button, bar, false);
+        if (icon != 0) b.setImageResource(icon);
+        b.setContentDescription(label);
+        b.setTooltipText(label);
+        Runnable press = () -> {
+            if (closes) popup.dismiss();
+            action.run();
+        };
+        b.setOnClickListener(v -> press.run());
+        // As in the settings menus: the OK-up that opened the bar must not press its first button.
+        final boolean[] pressed = {false};
+        b.setOnKeyListener((v, code, event) -> {
+            // Up or Down leaves the bar: back to the card.
+            if (code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) popup.dismiss();
+                return true;
+            }
+            if (code != KeyEvent.KEYCODE_DPAD_CENTER && code != KeyEvent.KEYCODE_ENTER) return false;
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (event.getRepeatCount() == 0) pressed[0] = true;
+                return true;
+            }
+            if (pressed[0]) press.run();
+            pressed[0] = false;
+            return true;
+        });
+        bar.addView(b);
+        return b;
+    }
+
+    private String appLabel(String pkg) {
+        try {
+            PackageManager pm = getPackageManager();
+            return pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString();
+        } catch (PackageManager.NameNotFoundException e) {
+            return pkg;
+        }
+    }
+
+    /** The installed app's icon, or null when the package is gone or has none. */
+    private Drawable appIcon(String pkg) {
+        try {
+            return getPackageManager().getApplicationIcon(pkg);
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+    }
+
+    /** The now-playing bars in the playing app's colour: Spotify green, white for any other app. */
+    static int brandColor(String pkg) {
+        return pkg.startsWith("com.spotify.") ? 0xFF1ED760 : 0xCCFFFFFF;
+    }
+
+    /** A square, rounded copy of a cover for the now-playing pill's drawableStart. */
+    private static Drawable roundedThumb(Bitmap art, int sizePx, float radiusPx) {
+        Bitmap out = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(out);
+        int side = Math.min(art.getWidth(), art.getHeight());
+        Rect src = new Rect((art.getWidth() - side) / 2, (art.getHeight() - side) / 2,
+                (art.getWidth() + side) / 2, (art.getHeight() + side) / 2);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        android.graphics.Path clip = new android.graphics.Path();
+        clip.addRoundRect(0, 0, sizePx, sizePx, radiusPx, radiusPx, android.graphics.Path.Direction.CW);
+        c.clipPath(clip);
+        c.drawBitmap(art, src, new Rect(0, 0, sizePx, sizePx), paint);
+        BitmapDrawable d = new BitmapDrawable(null, out);
+        d.setBounds(0, 0, sizePx, sizePx);
+        return d;
     }
 
     private void refreshPillsAfterNextDraw() {

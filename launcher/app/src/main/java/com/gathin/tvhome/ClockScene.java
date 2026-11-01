@@ -6,6 +6,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import java.util.Random;
 
@@ -24,6 +26,12 @@ final class ClockScene {
     private final Random random = new Random();
     private final View content;
     private final GradientDrawable glow;
+    private final View nowPlayingRow;
+    private final ImageView nowPlayingArt;
+    private final TextView nowPlayingText;
+    private final NowPlaying nowPlaying;
+    private Runnable onPlayingChanged;
+    private boolean playing;
     private int colorIndex;
     private int glowColor;
 
@@ -47,9 +55,15 @@ final class ClockScene {
                 glow.setGradientRadius((r - l) * 0.55f));
         colorIndex = random.nextInt(PALETTE.length);
         setGlow(PALETTE[colorIndex]);
+        nowPlayingRow = root.findViewById(R.id.dreamNowPlaying);
+        nowPlayingArt = root.findViewById(R.id.dreamNowPlayingArt);
+        nowPlayingArt.setClipToOutline(true);
+        nowPlayingText = root.findViewById(R.id.dreamNowPlayingText);
+        nowPlaying = new NowPlaying(root.getContext(), this::showTrack);
     }
 
     void start() {
+        nowPlaying.start();
         content.setAlpha(0f);
         content.post(() -> {
             placeClock();
@@ -61,6 +75,41 @@ final class ClockScene {
 
     void stop() {
         handler.removeCallbacks(tick);
+        nowPlaying.stop();
+        setPlaying(false);
+    }
+
+    /** Runs whenever a track starts or stops playing; ClockDream keeps the screen on for it. */
+    void setOnPlayingChanged(Runnable r) {
+        onPlayingChanged = r;
+    }
+
+    boolean isPlaying() {
+        return playing;
+    }
+
+    private void setPlaying(boolean now) {
+        if (now == playing) return;
+        playing = now;
+        if (onPlayingChanged != null) onPlayingChanged.run();
+    }
+
+    private void showTrack(NowPlaying.Track track) {
+        if (track != null && !track.playing) track = null;   // the screensaver shows only what plays
+        setPlaying(track != null);
+        if (track == null) {
+            nowPlayingRow.setVisibility(View.GONE);
+            return;
+        }
+        nowPlayingText.setText(track.artist.isEmpty() ? track.title : track.title + "  ·  " + track.artist);
+        nowPlayingArt.setImageBitmap(track.art);
+        nowPlayingRow.setVisibility(View.VISIBLE);
+        // The row makes the clock taller: keep it on screen until the next move picks a new spot.
+        content.post(() -> {
+            View parent = (View) content.getParent();
+            content.setX(Math.min(content.getX(), Math.max(0, parent.getWidth() - content.getWidth())));
+            content.setY(Math.min(content.getY(), Math.max(0, parent.getHeight() - content.getHeight())));
+        });
     }
 
     private void moveClock() {

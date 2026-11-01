@@ -29,7 +29,7 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
         this.dockSize = dockSize;
         this.density = density;
         this.namesRoom = names ? 22 * density : 0;
-        band.setColor(translucent ? 0x8C121014 : 0xFF141416);
+        band.setColor(translucent ? 0x8C121014 : 0xB338383D);
         edge.setStyle(Paint.Style.STROKE);
         edge.setStrokeWidth(density);
         edge.setColor(translucent ? 0x26FFFFFF : 0x1FFFFFFF);
@@ -48,6 +48,7 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
     @Override
     public void onDraw(@NonNull Canvas c, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
         boolean any = false;
+        int cardWidth = 0;
         for (int i = 0; i < parent.getChildCount(); i++) {
             View child = parent.getChildAt(i);
             int pos = parent.getChildAdapterPosition(child);
@@ -55,6 +56,7 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
             RecyclerView.ViewHolder vh = parent.getChildViewHolder(child);
             View card = vh instanceof AppAdapter.Holder ? ((AppAdapter.Holder) vh).card : child.findViewById(R.id.card);
             if (card == null) continue;
+            cardWidth = card.getWidth();
             float l = child.getLeft() + card.getLeft();
             float t = child.getTop() + card.getTop() + child.getTranslationY();
             float r = l + card.getWidth();
@@ -72,9 +74,11 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
         // edges: a full 14dp at the sides sliced the rounded ends flat (#454). Keep the sides, with the
         // 1dp edge line, inside the grid; the top and bottom have room.
         float side = Math.max(0f, Math.min(pad, Math.min(rect.left, parent.getWidth() - rect.right) - density));
-        rect.inset(-side, -pad);
+        // The same gap on all four sides, and the band's corners concentric with the tiles' (which shrink with
+        // them at 5 or more columns): tile corner plus gap. A fixed 30dp looked too round around 6-column tiles.
+        rect.inset(-side, -side);
         rect.bottom += namesRoom;
-        float radius = 26 * density;
+        float radius = AppAdapter.cornerRadius(cardWidth, density) + side;
         c.drawRoundRect(rect, radius, radius, band);
         c.drawRoundRect(rect, radius, radius, edge);
     }

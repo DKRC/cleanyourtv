@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The weather / now-playing pills in the top bar: display only, so quieter than the focusable glass pills
+     (pill_bg): a flat 10% white with no hairline, so they read as labels rather than buttons. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#1AFFFFFF" />
+    <corners android:radius="21dp" />
+</shape>

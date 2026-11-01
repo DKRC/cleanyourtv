@@ -25,6 +25,30 @@
     <string name="stats_memory">Memory %1$d MB free</string>
     <string name="stats_storage">Storage %1$s free</string>
     <string name="dream_name">Clock</string>
+    <!-- Kicker over the playing track, on Home and in the clock screensaver. -->
+    <string name="now_playing">Now playing</string>
+    <string name="now_paused">Paused</string>
+    <string name="media_play">Resume</string>
+    <!-- The Now playing card's menu (OK on the card). -->
+    <string name="media_pause">Pause</string>
+    <string name="media_next">Next</string>
+    <string name="media_previous">Previous</string>
+    <string name="media_open">Open %1$s</string>
+    <!-- The weather panel on Home (Weather): WMO weather groups, then today's range. -->
+    <string name="weather_clear">Clear</string>
+    <string name="weather_partly_cloudy">Partly cloudy</string>
+    <string name="weather_cloudy">Cloudy</string>
+    <string name="weather_fog">Fog</string>
+    <string name="weather_drizzle">Drizzle</string>
+    <string name="weather_rain">Rain</string>
+    <string name="weather_snow">Snow</string>
+    <string name="weather_storm">Thunderstorm</string>
+    <string name="weather_range">High %1$d° · Low %2$d°</string>
+    <!-- The Up next card on Home (Agenda): kicker, the day words before a time, the F1 race session. -->
+    <string name="agenda">Up next</string>
+    <string name="agenda_today">Today</string>
+    <string name="agenda_tomorrow">Tomorrow</string>
+    <string name="agenda_race">Race</string>
     <string name="vpn">VPN</string>
     <string name="vpn_off">VPN off</string>
     <string name="home_settings">Choose default home</string>
@@ -54,6 +78,8 @@
     <string name="input_key_service_description">Opens the input switcher when the remote\'s Input button is pressed.</string>
     <string name="home_key_name">Home button</string>
     <string name="home_key_description">Makes the remote\'s Home button open this launcher.</string>
+    <string name="spotify_exit_name">Spotify Back</string>
+    <string name="spotify_exit_description">Back on Spotify\'s home goes Home, without the Close Spotify prompt, so the music keeps playing.</string>
     <string name="card_prompt_title">New card from %1$s</string>
     <string name="card_prompt_body">%1$s can show a card on your home screen. Keeping it hidden leaves the app\'s normal tile as it is.</string>
     <string name="card_prompt_names">The card is named \'%1$s\'. The app is \'%2$s\'.</string>
@@ -78,6 +104,10 @@
     <string name="dock_edit_pick_app">Now choose the app to put there and press OK. Back to choose another place.</string>
     <string name="reorder">Reorder apps</string>
     <string name="reorder_hint">OK picks up an app, arrows move it, Back places it. Back again to finish.</string>
+    <string name="tile_move">Move</string>
+    <string name="tile_uninstall">Uninstall</string>
+    <string name="tile_uninstall_unavailable">This TV can\'t uninstall apps from here</string>
+    <string name="move_hint">Arrows move the app, Back places it. Back again to finish.</string>
     <string name="reorder_not_saved">Couldn\'t save the new order</string>
     <string name="app_library">App library</string>
     <string name="library_empty">No launchable apps found</string>
