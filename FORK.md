@@ -1,5 +1,7 @@
 # Chromecast Home: Up next, Now playing controls and weather
 
+![Home](docs/chromecast-home/home.jpg)
+
 A fork of this repo's launcher, tuned on a Chromecast with Google TV 4K (sabrina, Google TV 14). It
 branches from upstream `c1da7e10` (21 Oct 2026) and changes only `launcher/`; everything else is
 upstream as it was then.
